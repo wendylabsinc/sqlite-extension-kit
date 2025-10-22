@@ -8,7 +8,7 @@ A modern, Swift-ergonomic package for building SQLite loadable extensions with f
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-orange.svg)](https://www.linux.org/)
 [![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
 
-**Experimental Support**: Android (via JNI), Windows (via Swift for Windows)
+**Deployment Guides Available**: Includes comprehensive guides for Android (JNI wrapper approach) and Windows (DLL compilation) integration.
 
 ## Features
 

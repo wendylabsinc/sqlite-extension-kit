@@ -1,50 +1,58 @@
-# Advanced SQLite Extension Examples
+# Advanced Examples
 
-This document covers advanced extension features beyond basic scalar and aggregate functions.
+Explore advanced extension features including JSON functions, regular expressions, and complex aggregations.
 
-## Summary of Warnings
+## Overview
 
-**✅ No Swift Compiler Warnings**
+This guide covers advanced extension features beyond basic scalar and aggregate functions, including implementation patterns, memory safety considerations, and production recommendations.
+
+## Compiler Status
+
+**No Swift Compiler Warnings**
 
 The codebase compiles cleanly with Swift 6.2 in strict concurrency mode with zero warnings when using:
+
 ```bash
 swiftly run swift build
 ```
 
-## Included Advanced Examples
+## Advanced Functions Extension
 
-### 1. Advanced Functions Extension (`AdvancedFunctions.swift`)
+Demonstrates sophisticated function implementations with practical use cases.
 
-Demonstrates sophisticated function implementations:
+### JSON Functions
 
-#### JSON Functions
 - `json_extract_simple(json, path)` - Extract values from JSON using path syntax
 - `json_array_contains(array, value)` - Check if JSON array contains a value
 
-#### Regular Expressions
+### Regular Expressions
+
 - `regexp_match(text, pattern)` - Test if text matches regex pattern
 - `regexp_replace(text, pattern, replacement)` - Replace regex matches
 
-#### String Similarity
-- `levenshtein(s1, s2)` - Calculate edit distance between strings
+### String Similarity
 
-#### Utilities
+- `levenshtein(s1, s2)` - Calculate edit distance between strings for fuzzy matching
+
+### Utilities
+
 - `uuid()` - Generate UUID
 - `unix_timestamp()` - Get current Unix timestamp
 - `iso8601_timestamp()` - Get ISO8601 formatted timestamp
 - `url_encode(text)` / `url_decode(text)` - URL encoding/decoding
 
-**Usage:**
+### Usage Example
+
 ```swift
 try AdvancedFunctionsExtension.register(with: database)
 ```
 
 ```sql
 -- JSON extraction
-SELECT json_extract_simple('{"name":"Alice","age":30}', '$.name');  --> 'Alice'
+SELECT json_extract_simple('{"name":"Alice","age":30}', '$.name');  -- Returns 'Alice'
 
 -- Regex matching
-SELECT regexp_match('test@example.com', '.*@.*\\.com');  --> 1
+SELECT regexp_match('test@example.com', '.*@.*\\.com');  -- Returns 1
 
 -- String similarity for fuzzy matching
 SELECT name FROM users WHERE levenshtein(name, 'Alice') < 3;
@@ -53,18 +61,20 @@ SELECT name FROM users WHERE levenshtein(name, 'Alice') < 3;
 INSERT INTO records VALUES (uuid(), 'data');
 ```
 
-### 2. Window Functions Extension (`WindowFunctions.swift`)
+## Window Functions Extension
 
-Provides aggregate functions useful for window operations:
+Provides aggregate functions useful for statistical operations and window-like computations.
 
-#### Implemented Functions
+### Implemented Functions
+
 - `moving_avg(value, window_size)` - Moving average over window
 - `running_total(value)` - Cumulative sum
 - `percentile(value, p)` - Calculate percentile (0-100)
 - `median(value)` - Calculate median (50th percentile)
 - `string_agg(value, separator)` - Aggregate strings with separator
 
-**Usage:**
+### Usage Example
+
 ```swift
 try WindowFunctionsExtension.register(with: database)
 ```
@@ -85,32 +95,40 @@ SELECT moving_avg(value, 3) FROM (
 );
 ```
 
-**Note:** These are implemented as aggregate functions. True SQLite window functions require additional C-level integration with the window function interface (xStep, xInverse, xValue, xFinal callbacks). The current implementation works for aggregate contexts but doesn't support the full OVER clause syntax.
+### Important Note
 
-### 3. Virtual Table Example (`KeyValueTable.swift`)
+These are implemented as aggregate functions. True SQLite window functions require additional C-level integration with the window function interface (xStep, xInverse, xValue, xFinal callbacks). The current implementation works for aggregate contexts but doesn't support the full OVER clause syntax.
+
+## Virtual Table Architecture
 
 Demonstrates the virtual table protocol design for creating table-like interfaces to custom data sources.
 
-**Features:**
+### Features
+
 - Protocol-based API (`VirtualTableModule`, `VirtualTableCursor`)
 - Type-safe column value handling
 - Query optimization with `bestIndex`
 - Example in-memory key-value store implementation
 
-**Implementation Status:**
+### Implementation Status
 
 This provides the Swift-side types and protocols for virtual tables. The example shows:
+
 - How to structure a virtual table module
 - Cursor iteration patterns
 - Query constraint handling
 - Index optimization
 
-**Important:** Full virtual table registration requires C function pointers for the `sqlite3_module` interface. This is beyond the scope of pure Swift extensions because:
+### Important Limitation
+
+Full virtual table registration requires C function pointers for the `sqlite3_module` interface. This is beyond the scope of pure Swift extensions because:
+
 1. SQLite expects C function pointers for all module callbacks
 2. The module must remain valid for the lifetime of the database
-3. Memory management is complex with bidirectional C↔Swift ownership
+3. Memory management is complex with bidirectional C-Swift ownership
 
 For production virtual tables, you would need to:
+
 1. Create C wrapper functions
 2. Register them with `sqlite3_create_module_v2`
 3. Bridge to Swift implementation
@@ -121,9 +139,10 @@ The provided code serves as a reference architecture for the Swift layer.
 
 ### Aggregate Context Usage
 
-When using `sqlite3_aggregate_context()`, be aware of memory safety:
+When using `sqlite3_aggregate_context()`, be aware of memory safety requirements.
 
-**✅ Safe Patterns:**
+**Safe Patterns:**
+
 ```swift
 // Simple value types
 let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
@@ -139,18 +158,20 @@ statePtr.pointee.sum += value
 statePtr.pointee.count += 1
 ```
 
-**⚠️ Complex Types Require Care:**
+**Complex Types Require Care:**
+
 ```swift
 // Arrays and strings need manual memory management
 // The aggregate context is just raw bytes - no automatic reference counting
 struct UnsafeState {
-    var values: [Double]  // ⚠️ This won't work correctly!
+    var values: [Double]  // WARNING: This won't work correctly!
 }
 
 // Better: Use fixed-size buffers or manage lifecycle explicitly
 ```
 
 For complex state, consider:
+
 1. Using simpler fixed-size types
 2. Allocating separate Swift objects and storing only a pointer
 3. Implementing proper cleanup in the final callback
@@ -168,23 +189,27 @@ swiftly run swift test --filter AdvancedFunctionsTests
 ```
 
 Current test coverage:
-- ✅ Advanced Functions: 9 tests passing
-- ✅ Window Functions: Note on complex state management
-- ℹ️  Virtual Tables: Architecture example (not runtime testable without C integration)
+
+- Advanced Functions: 9 tests passing
+- Window Functions: Note on complex state management
+- Virtual Tables: Architecture example (not runtime testable without C integration)
 
 ## Limitations and Future Work
 
 ### Window Functions
+
 - Currently implemented as aggregates, not true window functions
 - Full window function support requires `xInverse` callback implementation
 - Need C-level integration for proper OVER clause support
 
 ### Virtual Tables
+
 - Protocol architecture is complete
 - Actual registration requires C callback glue code
 - Consider this a reference implementation for the design pattern
 
 ### Collations
+
 - Custom sort orders require `sqlite3_create_collation_v2`
 - Not included in current examples (requires C callback functions)
 
@@ -209,6 +234,7 @@ swiftly run swift build -c release
 ```
 
 Load in SQLite:
+
 ```sql
 .load .build/release/libExampleExtensions.dylib
 SELECT json_extract_simple('{"key":"value"}', '$.key');
@@ -217,10 +243,12 @@ SELECT json_extract_simple('{"key":"value"}', '$.key');
 ## Platform-Specific Notes
 
 ### macOS/iOS
+
 - CryptoKit available for `sha256()` function
 - Foundation provides JSON, regex, and URL encoding
 
 ### Linux
+
 - Ensure libc provides necessary functions
 - JSON and regex work via Foundation on Linux
 
@@ -234,6 +262,12 @@ When adding new advanced functions:
 4. Write integration tests
 5. Document memory safety considerations
 6. Test on all target platforms
+
+## See Also
+
+- <doc:GettingStarted>
+- <doc:LinuxDeployment>
+- <doc:WindowsDeployment>
 
 ## Resources
 

@@ -11,6 +11,7 @@ SQLiteExtensionKit provides a modern, Swift-ergonomic API for creating SQLite lo
 ### Getting Started
 
 - <doc:GettingStarted>
+- <doc:ProjectOverview>
 
 ### Platform-Specific Deployment
 
@@ -34,6 +35,7 @@ SQLiteExtensionKit provides a modern, Swift-ergonomic API for creating SQLite lo
 
 ### Advanced Features
 
+- <doc:AdvancedExamples>
 - ``VirtualTableModule``
 - ``VirtualTableCursor``
 - ``IndexInfo``
