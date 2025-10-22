@@ -1,10 +1,6 @@
 import SQLiteExtensionKit
 import Foundation
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#endif
+import Synchronization
 
 /// Example virtual table implementation: In-memory key-value store.
 ///
@@ -39,62 +35,32 @@ public struct KeyValueVirtualTable: VirtualTableModule {
     private let storage: Storage
 
     /// Shared storage class
-    final class Storage: @unchecked Sendable {
-        private let mutex = Mutex()
-        private var data: [String: String] = [:]
+    final class Storage: Sendable {
+        private let data = Mutex<[String: String]>([:])
 
         func set(_ key: String, _ value: String) {
-            mutex.withLock {
-                data[key] = value
+            data.withLock {
+                $0[key] = value
             }
         }
 
         func get(_ key: String) -> String? {
-            mutex.withLock {
-                data[key]
+            data.withLock {
+                $0[key]
             }
         }
 
         func all() -> [(String, String)] {
-            mutex.withLock {
-                Array(data)
+            data.withLock {
+                Array($0)
             }
         }
 
         func remove(_ key: String) {
-            _ = mutex.withLock {
-                data.removeValue(forKey: key)
+            data.withLock {
+                _ = $0.removeValue(forKey: key)
             }
         }
-    }
-
-    /// Mutex for thread-safe access
-    final class Mutex: @unchecked Sendable {
-        #if canImport(Darwin)
-        private var _lock = os_unfair_lock()
-
-        func withLock<T>(_ body: () throws -> T) rethrows -> T {
-            os_unfair_lock_lock(&_lock)
-            defer { os_unfair_lock_unlock(&_lock) }
-            return try body()
-        }
-        #else
-        private var _lock = pthread_mutex_t()
-
-        init() {
-            pthread_mutex_init(&_lock, nil)
-        }
-
-        deinit {
-            pthread_mutex_destroy(&_lock)
-        }
-
-        func withLock<T>(_ body: () throws -> T) rethrows -> T {
-            pthread_mutex_lock(&_lock)
-            defer { pthread_mutex_unlock(&_lock) }
-            return try body()
-        }
-        #endif
     }
 
     public static var schema: String {

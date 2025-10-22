@@ -6,8 +6,10 @@ import PackageDescription
 let package = Package(
     name: "SQLiteExtensionKit",
     platforms: [
-        .macOS(.v13),
-        .iOS(.v16)
+        .macOS(.v15),
+        .iOS(.v18),
+        .tvOS(.v18),
+        .watchOS(.v11)
     ],
     products: [
         // The main library for building SQLite extensions
