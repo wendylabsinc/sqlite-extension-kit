@@ -70,6 +70,7 @@ public struct KeyValueVirtualTable: VirtualTableModule {
 
     /// Mutex for thread-safe access
     final class Mutex: @unchecked Sendable {
+        #if canImport(Darwin)
         private var _lock = os_unfair_lock()
 
         func withLock<T>(_ body: () throws -> T) rethrows -> T {
@@ -77,6 +78,23 @@ public struct KeyValueVirtualTable: VirtualTableModule {
             defer { os_unfair_lock_unlock(&_lock) }
             return try body()
         }
+        #else
+        private var _lock = pthread_mutex_t()
+
+        init() {
+            pthread_mutex_init(&_lock, nil)
+        }
+
+        deinit {
+            pthread_mutex_destroy(&_lock)
+        }
+
+        func withLock<T>(_ body: () throws -> T) rethrows -> T {
+            pthread_mutex_lock(&_lock)
+            defer { pthread_mutex_unlock(&_lock) }
+            return try body()
+        }
+        #endif
     }
 
     public static var schema: String {
