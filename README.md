@@ -2,6 +2,14 @@
 
 A modern, Swift-ergonomic package for building SQLite loadable extensions with full support for Apple platforms, macOS, and Linux.
 
+[![iOS](https://img.shields.io/badge/iOS-16.0+-blue.svg)](https://developer.apple.com/ios/)
+[![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://developer.apple.com/macos/)
+[![tvOS](https://img.shields.io/badge/tvOS-16.0+-blue.svg)](https://developer.apple.com/tvos/)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-orange.svg)](https://www.linux.org/)
+[![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
+
+**Experimental Support**: Android (via JNI), Windows (via Swift for Windows)
+
 ## Features
 
 - **Type-safe API**: Swift-native types with comprehensive error handling
