@@ -2,9 +2,10 @@
 
 A modern, Swift-ergonomic package for building SQLite loadable extensions with full support for Apple platforms, macOS, and Linux.
 
-[![iOS](https://img.shields.io/badge/iOS-16.0+-blue.svg)](https://developer.apple.com/ios/)
-[![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://developer.apple.com/macos/)
-[![tvOS](https://img.shields.io/badge/tvOS-16.0+-blue.svg)](https://developer.apple.com/tvos/)
+[![iOS](https://img.shields.io/badge/iOS-18.0+-blue.svg)](https://developer.apple.com/ios/)
+[![macOS](https://img.shields.io/badge/macOS-15.0+-blue.svg)](https://developer.apple.com/macos/)
+[![tvOS](https://img.shields.io/badge/tvOS-18.0+-blue.svg)](https://developer.apple.com/tvos/)
+[![watchOS](https://img.shields.io/badge/watchOS-11.0+-blue.svg)](https://developer.apple.com/watchos/)
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-orange.svg)](https://www.linux.org/)
 [![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
 
@@ -24,7 +25,7 @@ A modern, Swift-ergonomic package for building SQLite loadable extensions with f
 
 - Swift 6.0 or later
 - SQLite 3.x
-- Platforms: macOS 13+, iOS 16+, Linux
+- Platforms: macOS 15+, iOS 18+, tvOS 18+, watchOS 11+, Linux
 
 ## Installation
 
@@ -34,7 +35,7 @@ Add SQLiteExtensionKit to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "1.0.0")
+    .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "0.0.1")
 ]
 ```
 
