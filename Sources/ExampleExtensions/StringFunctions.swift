@@ -87,7 +87,7 @@ public struct StringFunctionsExtension: SQLiteExtensionModule {
 public func sqlite3_stringfunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: UnsafePointer<sqlite3_api_routines>?
+    pApi: OpaquePointer?
 ) -> Int32 {
     return StringFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }

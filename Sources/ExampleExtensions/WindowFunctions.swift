@@ -219,7 +219,7 @@ struct StringAggState {
 public func sqlite3_windowfunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: UnsafePointer<sqlite3_api_routines>?
+    pApi: OpaquePointer?
 ) -> Int32 {
     return WindowFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }

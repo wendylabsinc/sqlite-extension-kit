@@ -25,7 +25,7 @@ import Glibc
 /// public func sqlite3_myextension_init(
 ///     db: OpaquePointer?,
 ///     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-///     pApi: UnsafePointer<sqlite3_api_routines>?
+///     pApi: OpaquePointer?
 /// ) -> Int32 {
 ///     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 /// }
@@ -52,7 +52,7 @@ extension SQLiteExtensionModule {
     /// public func sqlite3_myext_init(
     ///     db: OpaquePointer?,
     ///     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    ///     pApi: UnsafePointer<sqlite3_api_routines>?
+    ///     pApi: OpaquePointer?
     /// ) -> Int32 {
     ///     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
     /// }
@@ -61,12 +61,12 @@ extension SQLiteExtensionModule {
     /// - Parameters:
     ///   - db: The SQLite database connection pointer.
     ///   - pzErrMsg: A pointer to store error messages.
-    ///   - pApi: The SQLite API routines pointer.
+    ///   - pApi: The SQLite API routines pointer (opaque, not used directly in Swift).
     /// - Returns: SQLITE_OK on success, or an error code on failure.
     public static func entryPoint(
         db: OpaquePointer?,
         pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-        pApi: UnsafePointer<sqlite3_api_routines>?
+        pApi: OpaquePointer?
     ) -> Int32 {
         guard let db = db else {
             return SQLITE_ERROR
@@ -131,14 +131,14 @@ extension SQLiteExtensionModule {
 ///   - name: The name of the extension.
 ///   - db: The SQLite database connection pointer.
 ///   - pzErrMsg: A pointer to store error messages.
-///   - pApi: The SQLite API routines pointer.
+///   - pApi: The SQLite API routines pointer (opaque, not used directly in Swift).
 ///   - register: A closure that registers the extension's functions.
 /// - Returns: SQLITE_OK on success, or an error code on failure.
 public func createExtensionEntryPoint(
     name: String,
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: UnsafePointer<sqlite3_api_routines>?,
+    pApi: OpaquePointer?,
     register: (SQLiteDatabase) throws -> Void
 ) -> Int32 {
     guard let db = db else {

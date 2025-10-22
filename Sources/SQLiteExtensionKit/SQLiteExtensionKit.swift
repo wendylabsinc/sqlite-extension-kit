@@ -39,7 +39,7 @@
 /// public func sqlite3_myextension_init(
 ///     db: OpaquePointer?,
 ///     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-///     pApi: UnsafePointer<sqlite3_api_routines>?
+///     pApi: OpaquePointer?
 /// ) -> Int32 {
 ///     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 /// }

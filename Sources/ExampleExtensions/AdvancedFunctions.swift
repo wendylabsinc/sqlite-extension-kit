@@ -260,7 +260,7 @@ private func calculateLevenshtein(_ s1: String, _ s2: String) -> Int {
 public func sqlite3_advancedfunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: UnsafePointer<sqlite3_api_routines>?
+    pApi: OpaquePointer?
 ) -> Int32 {
     return AdvancedFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
