@@ -43,7 +43,9 @@ let package = Package(
             targets: ["LinuxDockerDemo"]
         ),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.8.0")
+    ],
     targets: [
         // The main SQLiteExtensionKit target
         .target(
@@ -67,8 +69,14 @@ let package = Package(
         ),
         .executableTarget(
             name: "LinuxDockerDemo",
-            dependencies: ["SQLiteExtensionKit", "ExampleExtensions"],
+            dependencies: [
+                "SQLiteExtensionKit",
+                "ExampleExtensions",
+                .product(name: "GRDB", package: "GRDB.swift")
+            ],
             path: "Examples/LinuxDockerApp",
+            exclude: ["Package.swift"],
+            sources: ["main.swift"],
             swiftSettings: cursorSwiftSettings
         ),
 
