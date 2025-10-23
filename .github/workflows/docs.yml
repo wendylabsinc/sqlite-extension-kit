@@ -25,6 +25,7 @@ jobs:
       - name: Generate DocC
         run: |
           swift package --allow-writing-to-directory docs \
+            plugin \
             generate-documentation \
             --target SQLiteExtensionKit \
             --disable-indexing \
