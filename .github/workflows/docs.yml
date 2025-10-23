@@ -1,0 +1,56 @@
+name: Docs
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Swift
+        uses: SwiftyLab/setup-swift@v1
+        with:
+          swift-version: '6.2'
+
+      - name: Generate DocC
+        run: |
+          swift package --allow-writing-to-directory docs \
+            generate-documentation \
+            --target SQLiteExtensionKit \
+            --disable-indexing \
+            --transform-for-static-hosting \
+            --hosting-base-path sqlite-extension-kit \
+            --output-path docs
+
+      - name: Redirect root to module landing
+        run: |
+          cat > docs/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Redirecting…</title>
+          <meta http-equiv="refresh" content="0; url=/sqlite-extension-kit/documentation/sqliteextensionkit/">
+          <link rel="canonical" href="/sqlite-extension-kit/documentation/sqliteextensionkit/">
+          <script>location.replace('/sqlite-extension-kit/documentation/sqliteextensionkit/' + location.search + location.hash)</script>
+          <p>If you are not redirected automatically, follow this <a href="/sqlite-extension-kit/documentation/sqliteextensionkit/">link to documentation</a>.</p>
+          HTML
+
+      - name: Add 404 fallback for SPA routing
+        run: cp docs/index.html docs/404.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          enable_jekyll: false
+          force_orphan: true
