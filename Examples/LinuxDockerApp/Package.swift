@@ -23,6 +23,7 @@ let package = Package(
                 .product(name: "ExampleExtensions", package: "sqlite-extension-kit")
             ],
             path: ".",
+            exclude: ["Package.resolved", ".logs"],
             sources: ["main.swift"]
         )
     ]
