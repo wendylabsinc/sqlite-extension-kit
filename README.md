@@ -76,7 +76,7 @@ public func sqlite3_myextension_init(
 
 ```bash
 # Build the extension as a dynamic library
-swiftly run swift build -c release
+swift build -c release
 
 # The extension will be built as a .dylib (macOS) or .so (Linux)
 ```
@@ -267,16 +267,16 @@ See the **Advanced Examples** article in the [DocC documentation](#documentation
 
 ```bash
 # Build the package (zero warnings)
-swiftly run swift build
+swift build
 
 # Run all tests (52 tests in 7 suites)
-swiftly run swift test
+swift test
 
 # Build in release mode
-swiftly run swift build -c release
+swift build -c release
 
 # Run specific tests
-swiftly run swift test --filter StringFunctionsTests
+swift test --filter StringFunctionsTests
 ```
 
 ### Code Quality
