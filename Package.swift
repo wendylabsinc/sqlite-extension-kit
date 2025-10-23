@@ -44,7 +44,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.8.0")
+        .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.8.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.3.0")
     ],
     targets: [
         // The main SQLiteExtensionKit target
