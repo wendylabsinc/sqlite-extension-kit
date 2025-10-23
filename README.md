@@ -209,6 +209,15 @@ mutating func update(_ operation: VirtualTableUpdateOperation) throws -> Virtual
 }
 ```
 
+Once the module is registered, ordinary SQL writes delegate back to Swift so you can manage
+persistence explicitly:
+
+```sql
+INSERT INTO kv(key, value) VALUES ('city', 'Paris');
+UPDATE kv SET value = 'Berlin' WHERE key = 'city';
+DELETE FROM kv WHERE key = 'city';
+```
+
 ## Working with Different Value Types
 
 SQLiteExtensionKit provides type-safe access to SQLite values:
@@ -277,6 +286,10 @@ The package includes several example extensions demonstrating various capabiliti
 - `base64_encode(blob)`: Encode as base64
 - `base64_decode(text)`: Decode base64
 
+Platform-specific helpers:
+- `sha256(data)`: SHA-256 hash (macOS/iOS only)
+- `reverse_bytes(blob)`: Reverse byte order
+
 ## Linux Docker Demo
 
 Want to see the extension loading on a Linux system that relies on the distro-provided SQLite?
@@ -291,8 +304,6 @@ The container installs the system `libsqlite3`, runs the test suite, builds the 
 product in release mode, and executes the `LinuxDockerDemo` helper. The demo links against the
 system library, registers the Swift string extension entry point, and executes a handful of SQL
 queries to show the results.
-- `sha256(data)`: SHA-256 hash (macOS/iOS only)
-- `reverse_bytes(blob)`: Reverse byte order
 
 ### AdvancedFunctionsExtension
 - JSON extraction and manipulation
@@ -324,7 +335,7 @@ See the **Advanced Examples** article in the [DocC documentation](#documentation
 # Build the package (zero warnings)
 swift build
 
-# Run all tests (52 tests in 7 suites)
+# Run all tests (54 tests in 8 suites)
 swift test
 
 # Build in release mode
