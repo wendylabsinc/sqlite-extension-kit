@@ -48,6 +48,13 @@ extern int SQLiteExtensionKit_VirtualTableRowid(
     sqlite3_int64 *rowid
 );
 
+extern int SQLiteExtensionKit_VirtualTableUpdate(
+    SQLiteVirtualTable *table,
+    int argc,
+    sqlite3_value **argv,
+    sqlite3_int64 *rowid
+);
+
 static int swiftCreate(
     sqlite3 *db,
     void *context,
@@ -173,6 +180,20 @@ static int swiftRowid(sqlite3_vtab_cursor *pCursor, sqlite3_int64 *rowid) {
     );
 }
 
+static int swiftUpdate(
+    sqlite3_vtab *pVTab,
+    int argc,
+    sqlite3_value **argv,
+    sqlite3_int64 *pRowid
+) {
+    return SQLiteExtensionKit_VirtualTableUpdate(
+        (SQLiteVirtualTable *)pVTab,
+        argc,
+        argv,
+        pRowid
+    );
+}
+
 static const sqlite3_module SwiftVirtualTableModule = {
     1,                      /* iVersion */
     swiftCreateThunk,       /* xCreate */
@@ -187,7 +208,7 @@ static const sqlite3_module SwiftVirtualTableModule = {
     swiftEof,               /* xEof */
     swiftColumn,            /* xColumn */
     swiftRowid,             /* xRowid */
-    NULL,                   /* xUpdate */
+    swiftUpdate,            /* xUpdate */
     NULL,                   /* xBegin */
     NULL,                   /* xSync */
     NULL,                   /* xCommit */

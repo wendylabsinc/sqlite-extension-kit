@@ -13,6 +13,14 @@ protocol AnyVirtualTableInstanceAdapter: AnyObject {
     func bestIndex(info: inout IndexInfo)
     func disconnect()
     func open() throws -> AnyVirtualTableCursorAdapter
+    func update(operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome
+}
+
+extension AnyVirtualTableInstanceAdapter {
+    func update(operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome {
+        _ = operation
+        return .readOnly
+    }
 }
 
 protocol AnyVirtualTableCursorAdapter: AnyObject {
@@ -56,6 +64,10 @@ final class VirtualTableInstanceAdapter<Module: VirtualTableModule>: AnyVirtualT
     func open() throws -> AnyVirtualTableCursorAdapter {
         let cursor = try module.open()
         return VirtualTableCursorAdapter(cursor: cursor)
+    }
+
+    func update(operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome {
+        try module.update(operation)
     }
 }
 
@@ -635,6 +647,112 @@ func SQLiteExtensionKit_VirtualTableRowid(
         return SQLITE_OK
     } catch {
         assignVirtualTableError(cursorPointer.pointee.table, message: "Rowid failed: \(error)")
+        return SQLITE_ERROR
+    }
+}
+
+@_cdecl("SQLiteExtensionKit_VirtualTableUpdate")
+func SQLiteExtensionKit_VirtualTableUpdate(
+    _ tablePointer: UnsafeMutablePointer<SQLiteVirtualTable>?,
+    _ argc: Int32,
+    _ argv: UnsafeMutablePointer<OpaquePointer?>?,
+    _ rowidPointer: UnsafeMutablePointer<Int64>?
+) -> Int32 {
+    guard
+        let tablePointer,
+        let swiftPointer = tablePointer.pointee.swiftTable,
+        let argv
+    else {
+        return SQLITE_ERROR
+    }
+
+    guard let instance = takeInstanceUnretained(swiftPointer) else {
+        return SQLITE_ERROR
+    }
+
+    guard argc >= 1 else {
+        return SQLITE_MISUSE
+    }
+
+    let argumentCount = Int(argc)
+    let operation: VirtualTableUpdateOperation
+
+    if argumentCount == 1 {
+        guard let rowidValue = argv[0] else {
+            assignVirtualTableError(tablePointer, message: "Missing rowid for delete")
+            return SQLITE_ERROR
+        }
+        let rowid = sqlite3_value_int64(rowidValue)
+        operation = .delete(rowid: rowid)
+    } else {
+        let oldRowidPointer = argv[0]
+        let newRowidPointer = argv[1]
+
+        var columnValues: [SQLiteValue] = []
+        if argumentCount > 2 {
+            columnValues.reserveCapacity(argumentCount - 2)
+            for index in 2..<argumentCount {
+                guard let valuePointer = argv[index] else {
+                    assignVirtualTableError(
+                        tablePointer,
+                        message: "Missing column value at index \(index - 2)"
+                    )
+                    return SQLITE_ERROR
+                }
+                columnValues.append(SQLiteValue(valuePointer))
+            }
+        }
+
+        let isInsert: Bool
+        if let oldRowidPointer {
+            isInsert = sqlite3_value_type(oldRowidPointer) == SQLITE_NULL
+        } else {
+            isInsert = true
+        }
+
+        if isInsert {
+            let requestedRowid: Int64?
+            if let newRowidPointer, sqlite3_value_type(newRowidPointer) != SQLITE_NULL {
+                requestedRowid = sqlite3_value_int64(newRowidPointer)
+            } else {
+                requestedRowid = nil
+            }
+            operation = .insert(rowid: requestedRowid, values: columnValues)
+        } else {
+            guard let existingRowPointer = oldRowidPointer else {
+                assignVirtualTableError(tablePointer, message: "Missing original rowid for update")
+                return SQLITE_ERROR
+            }
+
+            let originalRowid = sqlite3_value_int64(existingRowPointer)
+            let requestedRowid: Int64?
+            if let newRowidPointer, sqlite3_value_type(newRowidPointer) != SQLITE_NULL {
+                requestedRowid = sqlite3_value_int64(newRowidPointer)
+            } else {
+                requestedRowid = nil
+            }
+
+            operation = .update(
+                originalRowid: originalRowid,
+                newRowid: requestedRowid,
+                values: columnValues
+            )
+        }
+    }
+
+    do {
+        let result = try instance.update(operation: operation)
+        switch result {
+        case .handled(let rowid):
+            if let rowid, let rowidPointer {
+                rowidPointer.pointee = rowid
+            }
+            return SQLITE_OK
+        case .readOnly:
+            return SQLITE_READONLY
+        }
+    } catch {
+        assignVirtualTableError(tablePointer, message: "Update failed: \(error)")
         return SQLITE_ERROR
     }
 }

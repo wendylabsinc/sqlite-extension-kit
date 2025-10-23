@@ -70,6 +70,14 @@ extension SQLiteExtensionModule {
     ) -> Int32 {
         initializeExtensionIfNeeded(pApi)
 
+        if pApi != nil && SQLiteExtensionKitIsInitialized() == 0 {
+            assignErrorMessage(
+                "SQLite extension API not initialised",
+                to: pzErrMsg
+            )
+            return SQLITE_MISUSE
+        }
+
         guard let db = db else {
             return SQLITE_ERROR
         }
@@ -137,6 +145,14 @@ public func createExtensionEntryPoint(
     register: (SQLiteDatabase) throws -> Void
 ) -> Int32 {
     initializeExtensionIfNeeded(pApi)
+
+    if pApi != nil && SQLiteExtensionKitIsInitialized() == 0 {
+        assignErrorMessage(
+            "SQLite extension API not initialised",
+            to: pzErrMsg
+        )
+        return SQLITE_MISUSE
+    }
 
     guard let db = db else {
         return SQLITE_ERROR

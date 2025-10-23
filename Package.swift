@@ -3,6 +3,20 @@
 
 import PackageDescription
 
+#if swift(>=6.0)
+let strictConcurrencySettings: [SwiftSetting] = []
+#else
+let strictConcurrencySettings: [SwiftSetting] = [
+    .enableUpcomingFeature("StrictConcurrency")
+]
+#endif
+
+let commonSwiftSettings: [SwiftSetting] = strictConcurrencySettings + [
+    .enableExperimentalFeature("AccessLevelOnImport")
+]
+
+let cursorSwiftSettings: [SwiftSetting] = strictConcurrencySettings
+
 let package = Package(
     name: "SQLiteExtensionKit",
     platforms: [
@@ -24,6 +38,10 @@ let package = Package(
             type: .dynamic,
             targets: ["ExampleExtensions"]
         ),
+        .executable(
+            name: "LinuxDockerDemo",
+            targets: ["LinuxDockerDemo"]
+        ),
     ],
     dependencies: [],
     targets: [
@@ -31,10 +49,7 @@ let package = Package(
         .target(
             name: "SQLiteExtensionKit",
             dependencies: ["CSQLite"],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency"),
-                .enableExperimentalFeature("AccessLevelOnImport")
-            ]
+            swiftSettings: commonSwiftSettings
         ),
 
         // C wrapper for SQLite
@@ -48,27 +63,27 @@ let package = Package(
         .target(
             name: "ExampleExtensions",
             dependencies: ["SQLiteExtensionKit"],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            swiftSettings: cursorSwiftSettings
+        ),
+        .executableTarget(
+            name: "LinuxDockerDemo",
+            dependencies: ["SQLiteExtensionKit", "ExampleExtensions"],
+            path: "Examples/LinuxDockerApp",
+            swiftSettings: cursorSwiftSettings
         ),
 
         // Unit tests
         .testTarget(
             name: "SQLiteExtensionKitTests",
             dependencies: ["SQLiteExtensionKit"],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            swiftSettings: cursorSwiftSettings
         ),
 
         // Integration tests
         .testTarget(
             name: "IntegrationTests",
             dependencies: ["SQLiteExtensionKit", "ExampleExtensions"],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            swiftSettings: cursorSwiftSettings
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -8,6 +8,25 @@
 
 #include <sqlite3.h>
 
+#if defined(__has_include_next)
+#if __has_include_next(<sqlite3ext.h>)
+#ifndef SQLITE_CORE
+#define SQLITE_CORE 1
+#define SQLITE_EXTENSION_KIT_DEFINED_SQLITE_CORE 1
+#endif
+#include_next <sqlite3ext.h>
+#if defined(SQLITE_EXTENSION_KIT_DEFINED_SQLITE_CORE)
+#undef SQLITE_CORE
+#undef SQLITE_EXTENSION_KIT_DEFINED_SQLITE_CORE
+#endif
+#endif
+#endif
+
+#ifndef SQLITE3_API_ROUTINES_TYPE_DEFINED
+#define SQLITE3_API_ROUTINES_TYPE_DEFINED
+typedef struct sqlite3_api_routines sqlite3_api_routines;
+#endif
+
 /*
 ** Make sure we can call this stuff from C++.
 */
@@ -36,6 +55,7 @@ extern "C" {
 ** Helper for Swift to initialize the SQLite API routine table.
 */
 void SQLiteExtensionKitInitialize(const sqlite3_api_routines *pApi);
+int SQLiteExtensionKitIsInitialized(void);
 
 #ifdef __cplusplus
 }  /* end of the 'extern "C"' block */
