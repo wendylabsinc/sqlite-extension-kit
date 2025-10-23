@@ -66,7 +66,7 @@ public struct MyExtension: SQLiteExtensionModule {
 public func sqlite3_myextension_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
@@ -142,23 +142,24 @@ try db.createAggregateFunction(
         guard let first = args.first else { return }
 
         let value = first.doubleValue
-        let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-        let currentPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-
-        if sqlite3_aggregate_count(context.pointer) == 1 {
-            currentPtr.pointee = value
-        } else {
-            currentPtr.pointee *= value
+        context.withAggregateValue(initialValue: (product: 1.0, count: Int64(0))) { state in
+            if state.count == 0 {
+                state.product = value
+            } else {
+                state.product *= value
+            }
+            state.count += 1
         }
     },
     final: { context in
-        let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-        let resultPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-
-        if sqlite3_aggregate_count(context.pointer) == 0 {
+        if !context.withExistingAggregateValue((product: Double, count: Int64).self, clearOnExit: true, { state in
+            if state.count == 0 {
+                context.resultNull()
+            } else {
+                context.result(state.product)
+            }
+        }) {
             context.resultNull()
-        } else {
-            context.result(resultPtr.pointee)
         }
     }
 )
@@ -168,6 +169,11 @@ Usage:
 ```sql
 SELECT product(value) FROM numbers;
 ```
+
+The helpers `withAggregateValue(initialValue:)` and `withExistingAggregateValue(_:clearOnExit:_:)`
+store copyable state safely and release it when you are done. For complex reference types, fall back
+to ``aggregateState(create:)`` / ``existingAggregateState(_:)`` — see the window-function examples in
+`Sources/ExampleExtensions/WindowFunctions.swift`.
 
 ## Working with Different Value Types
 

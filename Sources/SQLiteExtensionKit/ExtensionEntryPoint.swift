@@ -25,7 +25,7 @@ import Glibc
 /// public func sqlite3_myextension_init(
 ///     db: OpaquePointer?,
 ///     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-///     pApi: OpaquePointer?
+///     pApi: UnsafePointer<sqlite3_api_routines>?
 /// ) -> Int32 {
 ///     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 /// }
@@ -52,7 +52,7 @@ extension SQLiteExtensionModule {
     /// public func sqlite3_myext_init(
     ///     db: OpaquePointer?,
     ///     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    ///     pApi: OpaquePointer?
+    ///     pApi: UnsafePointer<sqlite3_api_routines>?
     /// ) -> Int32 {
     ///     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
     /// }
@@ -66,27 +66,28 @@ extension SQLiteExtensionModule {
     public static func entryPoint(
         db: OpaquePointer?,
         pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-        pApi: OpaquePointer?
+        pApi: UnsafePointer<sqlite3_api_routines>?
     ) -> Int32 {
+        if let pApi = pApi {
+            SQLiteExtensionKitInitialize(pApi)
+        }
+
         guard let db = db else {
             return SQLITE_ERROR
         }
 
         // Initialize the SQLite extension API
         // This is required for all loadable extensions
-        // Note: In a real implementation, you'd need to call SQLITE_EXTENSION_INIT2(pApi)
-        // For Swift, we work directly with the provided db pointer
+        // Note: SQLite requires extensions to initialize the global API table via
+        // SQLITE_EXTENSION_INIT2. The call to `SQLiteExtensionKitInitialize` above
+        // bridges that requirement for Swift.
 
         do {
             let database = SQLiteDatabase(db)
             try Self.register(with: database)
             return SQLITE_OK
         } catch let error as SQLiteExtensionError {
-            if let pzErrMsg = pzErrMsg {
-                let message = "Extension '\(Self.name)' failed: \(error)"
-                let cString = strdup(message)
-                pzErrMsg.pointee = cString
-            }
+            assignErrorMessage("Extension '\(Self.name)' failed: \(error)", to: pzErrMsg)
 
             switch error {
             case .functionRegistrationFailed(_, let code):
@@ -97,11 +98,7 @@ extension SQLiteExtensionModule {
                 return SQLITE_ERROR
             }
         } catch {
-            if let pzErrMsg = pzErrMsg {
-                let message = "Extension '\(Self.name)' failed: \(error)"
-                let cString = strdup(message)
-                pzErrMsg.pointee = cString
-            }
+            assignErrorMessage("Extension '\(Self.name)' failed: \(error)", to: pzErrMsg)
             return SQLITE_ERROR
         }
     }
@@ -138,9 +135,13 @@ public func createExtensionEntryPoint(
     name: String,
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?,
+    pApi: UnsafePointer<sqlite3_api_routines>?,
     register: (SQLiteDatabase) throws -> Void
 ) -> Int32 {
+    if let pApi = pApi {
+        SQLiteExtensionKitInitialize(pApi)
+    }
+
     guard let db = db else {
         return SQLITE_ERROR
     }
@@ -150,11 +151,7 @@ public func createExtensionEntryPoint(
         try register(database)
         return SQLITE_OK
     } catch let error as SQLiteExtensionError {
-        if let pzErrMsg = pzErrMsg {
-            let message = "Extension '\(name)' failed: \(error)"
-            let cString = strdup(message)
-            pzErrMsg.pointee = cString
-        }
+        assignErrorMessage("Extension '\(name)' failed: \(error)", to: pzErrMsg)
 
         switch error {
         case .functionRegistrationFailed(_, let code):
@@ -165,11 +162,28 @@ public func createExtensionEntryPoint(
             return SQLITE_ERROR
         }
     } catch {
-        if let pzErrMsg = pzErrMsg {
-            let message = "Extension '\(name)' failed: \(error)"
-            let cString = strdup(message)
-            pzErrMsg.pointee = cString
-        }
+        assignErrorMessage("Extension '\(name)' failed: \(error)", to: pzErrMsg)
         return SQLITE_ERROR
     }
+}
+
+private func assignErrorMessage(
+    _ message: String,
+    to pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
+) {
+    guard let pzErrMsg = pzErrMsg else { return }
+
+    let bytes = message.utf8CString
+    let allocationSize = sqlite3_uint64(bytes.count)
+    guard let raw = sqlite3_malloc64(allocationSize) else {
+        return
+    }
+
+    let buffer = raw.assumingMemoryBound(to: CChar.self)
+    bytes.withUnsafeBufferPointer { pointer in
+        guard let baseAddress = pointer.baseAddress else { return }
+        buffer.initialize(from: baseAddress, count: pointer.count)
+    }
+
+    pzErrMsg.pointee = buffer
 }

@@ -33,6 +33,151 @@ public struct SQLiteContext: @unchecked Sendable {
         sqlite3_context_db_handle(pointer)
     }
 
+    // MARK: - Aggregate State Helpers
+
+    /// Returns an aggregate state object, creating it if necessary.
+    ///
+    /// - Parameter create: Closure that produces the initial state when none exists.
+    /// - Returns: The aggregate state instance.
+    public func aggregateState<T: AnyObject>(create: () -> T) -> T {
+        guard let storage = aggregateStateStorage(allocate: true) else {
+            return create()
+        }
+
+        if let existing = storage.pointee.pointer {
+            return Unmanaged<T>.fromOpaque(existing).takeUnretainedValue()
+        }
+
+        let state = create()
+        storage.pointee.pointer = Unmanaged.passRetained(state).toOpaque()
+        return state
+    }
+
+    /// Returns the existing aggregate state if one has been created.
+    ///
+    /// - Parameter type: The expected type of the state object.
+    /// - Returns: The existing state or `nil` if none has been created.
+    public func existingAggregateState<T: AnyObject>(_ type: T.Type) -> T? {
+        guard let storage = aggregateStateStorage(allocate: false),
+              let pointer = storage.pointee.pointer else {
+            return nil
+        }
+
+        return Unmanaged<T>.fromOpaque(pointer).takeUnretainedValue()
+    }
+
+    /// Releases and clears an aggregate state object.
+    ///
+    /// - Parameter type: The type of the state object to clear.
+    public func clearAggregateState<T: AnyObject>(_ type: T.Type) {
+        guard let storage = aggregateStateStorage(allocate: false),
+              let pointer = storage.pointee.pointer else {
+            return
+        }
+
+        Unmanaged<T>.fromOpaque(pointer).release()
+        storage.pointee.pointer = nil
+    }
+
+    /// Accesses a copyable aggregate state value, creating it if needed.
+    ///
+    /// - Parameters:
+    ///   - initialValue: The initial value to assign when the state is first created.
+    ///   - clearOnExit: Whether to clear the stored state after the closure finishes.
+    ///   - body: Closure that mutates the state in-place.
+    public func withAggregateValue<State>(
+        initialValue: @autoclosure () -> State,
+        clearOnExit: Bool = false,
+        _ body: (inout State) throws -> Void
+    ) rethrows {
+        let box: AggregateValueBox<State> = aggregateState {
+            AggregateValueBox(value: initialValue())
+        }
+
+        defer {
+            if clearOnExit {
+                clearAggregateState(AggregateValueBox<State>.self)
+            }
+        }
+
+        try body(&box.value)
+    }
+
+    /// Executes the closure with an existing aggregate value if one has been created.
+    ///
+    /// - Parameters:
+    ///   - type: The value type stored in the aggregate state.
+    ///   - clearOnExit: Whether to clear the stored state after the closure finishes.
+    ///   - body: Closure that receives the current value for mutation.
+    /// - Returns: `true` if a state existed and the closure ran, otherwise `false`.
+    @discardableResult
+    public func withExistingAggregateValue<State>(
+        _ type: State.Type = State.self,
+        clearOnExit: Bool = false,
+        _ body: (inout State) throws -> Void
+    ) rethrows -> Bool {
+        guard let box = existingAggregateState(AggregateValueBox<State>.self) else {
+            return false
+        }
+
+        defer {
+            if clearOnExit {
+                clearAggregateState(AggregateValueBox<State>.self)
+            }
+        }
+
+        try body(&box.value)
+        return true
+    }
+
+    /// Retrieves and clears the aggregate value if it exists.
+    ///
+    /// - Parameter type: The value type stored in the aggregate state.
+    /// - Returns: The stored value, or `nil` if none exists.
+    public func takeAggregateValue<State>(_ type: State.Type = State.self) -> State? {
+        guard let box = existingAggregateState(AggregateValueBox<State>.self) else {
+            return nil
+        }
+
+        defer {
+            clearAggregateState(AggregateValueBox<State>.self)
+        }
+
+        return box.value
+    }
+
+    private func aggregateStateStorage(
+        allocate: Bool
+    ) -> UnsafeMutablePointer<AggregateStateHolder>? {
+        if let raw = sqlite3_aggregate_context(pointer, 0) {
+            return raw.bindMemory(to: AggregateStateHolder.self, capacity: 1)
+        }
+
+        guard allocate,
+              let raw = sqlite3_aggregate_context(
+                  pointer,
+                  Int32(MemoryLayout<AggregateStateHolder>.stride)
+              ) else {
+            return nil
+        }
+
+        let storage = raw.bindMemory(to: AggregateStateHolder.self, capacity: 1)
+        storage.initialize(to: AggregateStateHolder(pointer: nil))
+        return storage
+    }
+
+    private struct AggregateStateHolder {
+        var pointer: UnsafeMutableRawPointer?
+    }
+
+    private final class AggregateValueBox<State>: @unchecked Sendable {
+        var value: State
+
+        init(value: State) {
+            self.value = value
+        }
+    }
+
     // MARK: - Result Methods
 
     /// Sets the result to an integer value.

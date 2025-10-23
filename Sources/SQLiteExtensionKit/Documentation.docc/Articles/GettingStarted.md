@@ -58,7 +58,7 @@ SQLite requires a C-compatible entry point with a specific naming convention:
 public func sqlite3_myextension_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
@@ -142,6 +142,36 @@ sqlite3_prepare_v2(db, "SELECT double(21)", -1, &stmt, nil)
 sqlite3_step(stmt)
 let result = sqlite3_column_int64(stmt, 0)  // 42
 ```
+
+## Managing Aggregate State
+
+Aggregate and window functions often need to keep mutable state between calls to their step and
+final callbacks. SQLiteExtensionKit offers helpers on ``SQLiteContext`` to manage that state safely.
+
+```swift
+try db.createAggregateFunction(
+    name: "running_total",
+    argumentCount: 1,
+    step: { context, args in
+        guard let value = args.first?.doubleValue else { return }
+
+        context.withAggregateValue(initialValue: 0.0) { sum in
+            sum += value
+        }
+    },
+    final: { context in
+        if !context.withExistingAggregateValue(Double.self, clearOnExit: true, { sum in
+            context.result(sum)
+        }) {
+            context.result(0.0)
+        }
+    }
+)
+```
+
+Use ``SQLiteContext/aggregateState(create:)`` and ``SQLiteContext/existingAggregateState(_:)`` when
+you need reference semantics instead of copyable values—the window function examples in this package
+show how to model more complex state machines.
 
 ## Understanding Value Types
 

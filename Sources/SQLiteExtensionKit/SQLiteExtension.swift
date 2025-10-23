@@ -122,6 +122,7 @@ public struct SQLiteDatabase: @unchecked Sendable {
         )
 
         if result != SQLITE_OK {
+            Unmanaged<FunctionBox>.fromOpaque(userData).release()
             throw SQLiteExtensionError.functionRegistrationFailed(name: name, code: result)
         }
     }
@@ -137,14 +138,22 @@ public struct SQLiteDatabase: @unchecked Sendable {
     ///     step: { context, args in
     ///         // Accumulate sum of squares
     ///         let value = args[0].doubleValue
-    ///         let current = context.getAggregateContext(Double.self) ?? 0.0
-    ///         context.setAggregateContext(current + value * value)
+    ///         let state: SumSquaresState = context.aggregateState { SumSquaresState() }
+    ///         state.total += value * value
     ///     },
     ///     final: { context in
-    ///         let sum = context.getAggregateContext(Double.self) ?? 0.0
-    ///         context.result(sum)
+    ///         guard let state: SumSquaresState = context.existingAggregateState(SumSquaresState.self) else {
+    ///             context.resultNull()
+    ///             return
+    ///         }
+    ///         context.result(state.total)
+    ///         context.clearAggregateState(SumSquaresState.self)
     ///     }
     /// )
+    ///
+    /// final class SumSquaresState: @unchecked Sendable {
+    ///     var total: Double = 0.0
+    /// }
     /// ```
     ///
     /// - Parameters:
@@ -210,6 +219,7 @@ public struct SQLiteDatabase: @unchecked Sendable {
         )
 
         if result != SQLITE_OK {
+            Unmanaged<AggregateFunctionBox>.fromOpaque(userData).release()
             throw SQLiteExtensionError.functionRegistrationFailed(name: name, code: result)
         }
     }

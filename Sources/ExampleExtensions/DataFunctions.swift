@@ -160,7 +160,7 @@ public struct DataFunctionsExtension: SQLiteExtensionModule {
 public func sqlite3_datafunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return DataFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }

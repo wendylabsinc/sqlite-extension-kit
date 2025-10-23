@@ -32,6 +32,11 @@ extern "C" {
   SQLITE_EXTENSION_INIT2(v)
 #endif
 
+/*
+** Helper for Swift to initialize the SQLite API routine table.
+*/
+void SQLiteExtensionKitInitialize(const sqlite3_api_routines *pApi);
+
 #ifdef __cplusplus
 }  /* end of the 'extern "C"' block */
 #endif

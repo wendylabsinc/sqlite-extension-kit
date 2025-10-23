@@ -42,35 +42,39 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
                 guard args.count == 2 else { return }
 
                 let value = args[0].doubleValue
-                let windowSize = Int(args[1].intValue)
+                let windowSize = max(1, Int(args[1].intValue))
 
-                // Store values and window size
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: MovingAvgState.self)
+                // Store values and running sum in a reference type to ensure proper initialisation.
+                let state: MovingAvgState = context.aggregateState { MovingAvgState() }
 
-                if statePtr.pointee.windowSize == 0 {
-                    statePtr.pointee.windowSize = windowSize
+                if state.windowSize == 0 {
+                    state.windowSize = windowSize
                 }
 
-                statePtr.pointee.values.append(value)
-                statePtr.pointee.sum += value
+                state.values.append(value)
+                state.sum += value
 
                 // Keep only the last 'windowSize' values
-                if statePtr.pointee.values.count > windowSize {
-                    let removed = statePtr.pointee.values.removeFirst()
-                    statePtr.pointee.sum -= removed
+                if state.values.count > state.windowSize {
+                    let removed = state.values.removeFirst()
+                    state.sum -= removed
                 }
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: MovingAvgState.self)
-
-                if statePtr.pointee.values.isEmpty {
+                guard let state: MovingAvgState = context.existingAggregateState(MovingAvgState.self) else {
                     context.resultNull()
-                } else {
-                    let avg = statePtr.pointee.sum / Double(statePtr.pointee.values.count)
-                    context.result(avg)
+                    return
                 }
+
+                defer { context.clearAggregateState(MovingAvgState.self) }
+
+                if state.values.isEmpty {
+                    context.resultNull()
+                    return
+                }
+
+                let avg = state.sum / Double(state.values.count)
+                context.result(avg)
             }
         )
 
@@ -82,14 +86,16 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
                 guard let first = args.first else { return }
 
                 let value = first.doubleValue
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-                let sumPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-                sumPtr.pointee += value
+                context.withAggregateValue(initialValue: 0.0) { sum in
+                    sum += value
+                }
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-                let sumPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-                context.result(sumPtr.pointee)
+                if !context.withExistingAggregateValue(Double.self, clearOnExit: true, { sum in
+                    context.result(sum)
+                }) {
+                    context.result(0.0)
+                }
             }
         )
 
@@ -101,24 +107,27 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
                 guard args.count == 2 else { return }
 
                 let value = args[0].doubleValue
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: PercentileState.self)
+                let state: PercentileState = context.aggregateState { PercentileState() }
 
-                statePtr.pointee.values.append(value)
-                statePtr.pointee.percentile = args[1].doubleValue
+                state.values.append(value)
+                state.percentile = args[1].doubleValue
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: PercentileState.self)
-
-                if statePtr.pointee.values.isEmpty {
+                guard let state: PercentileState = context.existingAggregateState(PercentileState.self) else {
                     context.resultNull()
                     return
                 }
 
-                let sorted = statePtr.pointee.values.sorted()
-                let p = statePtr.pointee.percentile
-                let index = Int(Double(sorted.count - 1) * p / 100.0)
+                defer { context.clearAggregateState(PercentileState.self) }
+
+                if state.values.isEmpty {
+                    context.resultNull()
+                    return
+                }
+
+                let sorted = state.values.sorted()
+                let percentileValue = state.percentile
+                let index = Int(Double(sorted.count - 1) * percentileValue / 100.0)
                 context.result(sorted[index])
             }
         )
@@ -131,20 +140,23 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
                 guard let first = args.first else { return }
 
                 let value = first.doubleValue
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: MedianState.self)
-                statePtr.pointee.values.append(value)
+                let state: MedianState = context.aggregateState { MedianState() }
+                state.values.append(value)
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: MedianState.self)
-
-                if statePtr.pointee.values.isEmpty {
+                guard let state: MedianState = context.existingAggregateState(MedianState.self) else {
                     context.resultNull()
                     return
                 }
 
-                let sorted = statePtr.pointee.values.sorted()
+                defer { context.clearAggregateState(MedianState.self) }
+
+                if state.values.isEmpty {
+                    context.resultNull()
+                    return
+                }
+
+                let sorted = state.values.sorted()
                 let count = sorted.count
 
                 if count % 2 == 0 {
@@ -168,25 +180,29 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
                 let value = args[0].textValue
                 let separator = args[1].textValue
 
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: StringAggState.self)
+                let state: StringAggState = context.aggregateState { StringAggState() }
 
-                if statePtr.pointee.separator.isEmpty {
-                    statePtr.pointee.separator = separator
+                if state.separator.isEmpty {
+                    state.separator = separator
                 }
 
-                statePtr.pointee.values.append(value)
+                state.values.append(value)
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 1024)
-                let statePtr = aggCtx!.assumingMemoryBound(to: StringAggState.self)
-
-                if statePtr.pointee.values.isEmpty {
+                guard let state: StringAggState = context.existingAggregateState(StringAggState.self) else {
                     context.resultNull()
-                } else {
-                    let result = statePtr.pointee.values.joined(separator: statePtr.pointee.separator)
-                    context.result(result)
+                    return
                 }
+
+                defer { context.clearAggregateState(StringAggState.self) }
+
+                if state.values.isEmpty {
+                    context.resultNull()
+                    return
+                }
+
+                let result = state.values.joined(separator: state.separator)
+                context.result(result)
             }
         )
     }
@@ -194,22 +210,22 @@ public struct WindowFunctionsExtension: SQLiteExtensionModule {
 
 // MARK: - State Structures
 
-struct MovingAvgState {
+final class MovingAvgState: @unchecked Sendable {
     var values: [Double] = []
     var sum: Double = 0.0
     var windowSize: Int = 0
 }
 
-struct PercentileState {
+final class PercentileState: @unchecked Sendable {
     var values: [Double] = []
     var percentile: Double = 50.0
 }
 
-struct MedianState {
+final class MedianState: @unchecked Sendable {
     var values: [Double] = []
 }
 
-struct StringAggState {
+final class StringAggState: @unchecked Sendable {
     var values: [String] = []
     var separator: String = ""
 }
@@ -219,7 +235,7 @@ struct StringAggState {
 public func sqlite3_windowfunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return WindowFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
