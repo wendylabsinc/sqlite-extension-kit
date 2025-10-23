@@ -14,7 +14,7 @@ Add SQLiteExtensionKit to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "1.0.0")
+    .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "0.0.1")
 ]
 ```
 
@@ -81,7 +81,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/yourusername/SQLiteExtensionKit", from: "1.0.0")
+        .package(url: "https://github.com/yourusername/SQLiteExtensionKit", from: "0.0.1")
     ],
     targets: [
         .target(

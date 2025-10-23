@@ -9,7 +9,7 @@ A modern, Swift-ergonomic package for building SQLite loadable extensions with f
 [![Linux](https://img.shields.io/badge/Linux-Ubuntu%20|%20Debian-orange.svg)](https://www.linux.org/)
 [![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
 
-**Deployment Guides Available**: Includes comprehensive guides for Android (JNI wrapper approach) and Windows (DLL compilation) integration.
+**Deployment Guides Available**: Comprehensive guides for Android (JNI wrapper approach) and Windows (DLL compilation) integration are available in the [DocC documentation](#documentation). Generate locally with `swift package generate-documentation` or view online (when published).
 
 ## Features
 
@@ -239,23 +239,29 @@ The package includes several example extensions demonstrating various capabiliti
 - `sha256(data)`: SHA-256 hash (macOS/iOS only)
 - `reverse_bytes(blob)`: Reverse byte order
 
-### AdvancedFunctionsExtension (See [ADVANCED_EXAMPLES.md](ADVANCED_EXAMPLES.md))
+### AdvancedFunctionsExtension
 - JSON extraction and manipulation
 - Regular expression matching and replacement
 - String similarity (Levenshtein distance)
 - UUID generation, timestamps
 - URL encoding/decoding
 
-### WindowFunctionsExtension (See [ADVANCED_EXAMPLES.md](ADVANCED_EXAMPLES.md))
+See the **Advanced Examples** article in the [DocC documentation](#documentation) for detailed examples.
+
+### WindowFunctionsExtension
 - Aggregate-based window-like functions
 - Moving averages, percentiles, median
 - String aggregation
 - Running totals
 
-### Virtual Table Architecture (See [ADVANCED_EXAMPLES.md](ADVANCED_EXAMPLES.md))
+See the **Advanced Examples** article in the [DocC documentation](#documentation) for detailed examples.
+
+### Virtual Table Architecture
 - Protocol-based virtual table design
 - Example key-value store implementation
 - Reference architecture for custom data sources
+
+See the **Advanced Examples** article in the [DocC documentation](#documentation) for detailed examples.
 
 ## Building and Testing
 
@@ -288,6 +294,12 @@ Generate documentation using DocC:
 ```bash
 swift package generate-documentation
 ```
+
+The documentation includes comprehensive platform-specific deployment guides:
+- **Android Integration**: JNI wrapper approach, Room integration, Gradle configuration
+- **iOS Integration**: Static library approach, framework embedding
+- **Windows Deployment**: DLL compilation, .NET integration, IIS deployment
+- **Linux Deployment**: Shared object files, systemd services
 
 ## Platform-Specific Notes
 
