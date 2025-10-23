@@ -122,6 +122,7 @@ public struct SQLiteDatabase: @unchecked Sendable {
         )
 
         if result != SQLITE_OK {
+            Unmanaged<FunctionBox>.fromOpaque(userData).release()
             throw SQLiteExtensionError.functionRegistrationFailed(name: name, code: result)
         }
     }
@@ -137,14 +138,22 @@ public struct SQLiteDatabase: @unchecked Sendable {
     ///     step: { context, args in
     ///         // Accumulate sum of squares
     ///         let value = args[0].doubleValue
-    ///         let current = context.getAggregateContext(Double.self) ?? 0.0
-    ///         context.setAggregateContext(current + value * value)
+    ///         let state: SumSquaresState = context.aggregateState { SumSquaresState() }
+    ///         state.total += value * value
     ///     },
     ///     final: { context in
-    ///         let sum = context.getAggregateContext(Double.self) ?? 0.0
-    ///         context.result(sum)
+    ///         guard let state: SumSquaresState = context.existingAggregateState(SumSquaresState.self) else {
+    ///             context.resultNull()
+    ///             return
+    ///         }
+    ///         context.result(state.total)
+    ///         context.clearAggregateState(SumSquaresState.self)
     ///     }
     /// )
+    ///
+    /// final class SumSquaresState: @unchecked Sendable {
+    ///     var total: Double = 0.0
+    /// }
     /// ```
     ///
     /// - Parameters:
@@ -210,7 +219,44 @@ public struct SQLiteDatabase: @unchecked Sendable {
         )
 
         if result != SQLITE_OK {
+            Unmanaged<AggregateFunctionBox>.fromOpaque(userData).release()
             throw SQLiteExtensionError.functionRegistrationFailed(name: name, code: result)
+        }
+    }
+
+    /// Registers a virtual table module with the database.
+    ///
+    /// - Parameters:
+    ///   - name: The module name as referenced in SQL (`USING name`).
+    ///   - module: The Swift type implementing the virtual table.
+    /// - Throws: ``SQLiteExtensionError`` if registration fails.
+    public func registerVirtualTableModule<Module: VirtualTableModule>(
+        name: String,
+        module: Module.Type = Module.self
+    ) throws {
+        let descriptor = VirtualTableModuleDescriptor(
+            name: name,
+            adapter: VirtualTableModuleAdapter<Module>()
+        )
+
+        let context = Unmanaged.passRetained(descriptor).toOpaque()
+        let destroy: @convention(c) (UnsafeMutableRawPointer?) -> Void = { pointer in
+            guard let pointer else { return }
+            Unmanaged<VirtualTableModuleDescriptor>.fromOpaque(pointer).release()
+        }
+
+        let result = name.withCString { cName in
+            SQLiteExtensionKit_CreateVirtualTableModule(
+                pointer,
+                cName,
+                context,
+                destroy
+            )
+        }
+
+        if result != SQLITE_OK {
+            Unmanaged<VirtualTableModuleDescriptor>.fromOpaque(context).release()
+            throw SQLiteExtensionError.sqliteError(code: result)
         }
     }
 }

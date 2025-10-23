@@ -66,11 +66,15 @@ public struct MyExtension: SQLiteExtensionModule {
 public func sqlite3_myextension_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return MyExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
 ```
+
+If you need to customise the entry point manually, call
+`initializeExtensionIfNeeded(pApi)` before interacting with any SQLite APIs to ensure the
+extension table is initialised.
 
 ### Building Your Extension
 
@@ -142,23 +146,24 @@ try db.createAggregateFunction(
         guard let first = args.first else { return }
 
         let value = first.doubleValue
-        let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-        let currentPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-
-        if sqlite3_aggregate_count(context.pointer) == 1 {
-            currentPtr.pointee = value
-        } else {
-            currentPtr.pointee *= value
+        context.withAggregateValue(initialValue: (product: 1.0, count: Int64(0))) { state in
+            if state.count == 0 {
+                state.product = value
+            } else {
+                state.product *= value
+            }
+            state.count += 1
         }
     },
     final: { context in
-        let aggCtx = sqlite3_aggregate_context(context.pointer, 8)
-        let resultPtr = aggCtx!.assumingMemoryBound(to: Double.self)
-
-        if sqlite3_aggregate_count(context.pointer) == 0 {
+        if !context.withExistingAggregateValue((product: Double, count: Int64).self, clearOnExit: true, { state in
+            if state.count == 0 {
+                context.resultNull()
+            } else {
+                context.result(state.product)
+            }
+        }) {
             context.resultNull()
-        } else {
-            context.result(resultPtr.pointee)
         }
     }
 )
@@ -167,6 +172,41 @@ try db.createAggregateFunction(
 Usage:
 ```sql
 SELECT product(value) FROM numbers;
+```
+
+The helpers `withAggregateValue(initialValue:)` and `withExistingAggregateValue(_:clearOnExit:_:)`
+store copyable state safely and release it when you are done. For complex reference types, fall back
+to ``aggregateState(create:)`` / ``existingAggregateState(_:)`` — see the window-function examples in
+`Sources/ExampleExtensions/WindowFunctions.swift`.
+
+### Virtual Tables
+
+Register a Swift virtual table module and expose it to SQLite:
+
+```swift
+try db.registerVirtualTableModule(name: "keyvalue", module: KeyValueVirtualTable.self)
+sqlite3_exec(db.pointer, "CREATE VIRTUAL TABLE kv USING keyvalue", nil, nil, nil)
+```
+
+The sample `KeyValueVirtualTable` demonstrates how to implement the required protocols; the C glue
+is handled internally by SQLiteExtensionKit.
+
+Write-enabled modules can override `update(_:)` to handle inserts, updates, and deletes:
+
+```swift
+mutating func update(_ operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome {
+    switch operation {
+    case let .insert(rowid, values):
+        storage.insert(values, preferredRowID: rowid)
+        return .handled(rowid: storage.lastInsertedRowID)
+    case let .update(originalRowid, newRowid, values):
+        storage.replace(rowID: originalRowid, with: values, preferredRowID: newRowid)
+        return .handled(rowid: newRowid ?? originalRowid)
+    case let .delete(rowid):
+        storage.remove(rowID: rowid)
+        return .handled(rowid: nil)
+    }
+}
 ```
 
 ## Working with Different Value Types
@@ -236,6 +276,21 @@ The package includes several example extensions demonstrating various capabiliti
 - `hex_decode(text)`: Decode hexadecimal
 - `base64_encode(blob)`: Encode as base64
 - `base64_decode(text)`: Decode base64
+
+## Linux Docker Demo
+
+Want to see the extension loading on a Linux system that relies on the distro-provided SQLite?
+Use the Docker example:
+
+```bash
+docker build -f Examples/LinuxDocker/Dockerfile -t sqlite-extension-kit-demo .
+docker run --rm sqlite-extension-kit-demo
+```
+
+The container installs the system `libsqlite3`, runs the test suite, builds the `ExampleExtensions`
+product in release mode, and executes the `LinuxDockerDemo` helper. The demo links against the
+system library, registers the Swift string extension entry point, and executes a handful of SQL
+queries to show the results.
 - `sha256(data)`: SHA-256 hash (macOS/iOS only)
 - `reverse_bytes(blob)`: Reverse byte order
 

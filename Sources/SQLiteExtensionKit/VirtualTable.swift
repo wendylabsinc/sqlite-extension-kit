@@ -13,6 +13,7 @@ import Foundation
 ///
 /// ### Optional Methods
 /// - ``disconnect()``
+/// - ``update(_:)``
 public protocol VirtualTableModule: Sendable {
     /// The associated cursor type for iterating over rows.
     associatedtype Cursor: VirtualTableCursor
@@ -57,6 +58,15 @@ public protocol VirtualTableModule: Sendable {
 
     /// Called when the last connection to the table is closed.
     func disconnect()
+
+    /// Handles insert, update, and delete operations for writable virtual tables.
+    ///
+    /// Implement this method to support mutation via SQL statements.
+    ///
+    /// - Parameter operation: The requested operation and associated values.
+    /// - Returns: The outcome of the operation.
+    /// - Throws: Any error encountered during processing.
+    mutating func update(_ operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome
 }
 
 extension VirtualTableModule {
@@ -67,6 +77,12 @@ extension VirtualTableModule {
 
     /// Default implementation with no special action.
     public func disconnect() {}
+
+    /// Default implementation that reports the table as read-only.
+    public mutating func update(_ operation: VirtualTableUpdateOperation) throws -> VirtualTableUpdateOutcome {
+        _ = operation
+        return .readOnly
+    }
 }
 
 /// A cursor for iterating over virtual table rows.
@@ -97,6 +113,40 @@ public protocol VirtualTableCursor: Sendable {
 
     /// Returns the current row ID.
     var rowid: Int64 { get }
+}
+
+/// Operations that SQLite can request via `xUpdate` on a virtual table.
+public enum VirtualTableUpdateOperation: Sendable {
+    /// Insert a new row into the virtual table.
+    ///
+    /// - Parameters:
+    ///   - rowid: The requested row identifier, if provided by SQLite.
+    ///   - values: Column values for the new row in schema order.
+    case insert(rowid: Int64?, values: [SQLiteValue])
+
+    /// Update an existing row in the virtual table.
+    ///
+    /// - Parameters:
+    ///   - originalRowid: The current row identifier.
+    ///   - newRowid: The requested replacement row identifier, if any.
+    ///   - values: Column values for the updated row in schema order.
+    case update(originalRowid: Int64, newRowid: Int64?, values: [SQLiteValue])
+
+    /// Delete the row identified by `rowid`.
+    ///
+    /// - Parameter rowid: The row identifier being deleted.
+    case delete(rowid: Int64)
+}
+
+/// The outcome of handling a `VirtualTableUpdateOperation`.
+public enum VirtualTableUpdateOutcome: Sendable {
+    /// The operation was processed successfully.
+    ///
+    /// - Parameter rowid: The row identifier that SQLite should use after the operation.
+    case handled(rowid: Int64?)
+
+    /// The table does not support writes and should be treated as read-only.
+    case readOnly
 }
 
 /// Represents a column value in a virtual table.

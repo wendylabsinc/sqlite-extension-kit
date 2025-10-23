@@ -105,25 +105,25 @@ public struct MathFunctionsExtension: SQLiteExtensionModule {
                 guard let first = args.first else { return }
 
                 let value = first.doubleValue
-                // Store product and count
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 16)
-                let statePtr = aggCtx!.assumingMemoryBound(to: (product: Double, count: Int64).self)
-
-                if statePtr.pointee.count == 0 {
-                    statePtr.pointee.product = value
-                } else {
-                    statePtr.pointee.product *= value
+                context.withAggregateValue(initialValue: (product: 1.0, count: Int64(0))) { state in
+                    if state.count == 0 {
+                        state.product = value
+                    } else {
+                        state.product *= value
+                    }
+                    state.count += 1
                 }
-                statePtr.pointee.count += 1
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 16)
-                let statePtr = aggCtx!.assumingMemoryBound(to: (product: Double, count: Int64).self)
-
-                if statePtr.pointee.count == 0 {
+                guard context.withExistingAggregateValue((product: Double, count: Int64).self, clearOnExit: true, { state in
+                    if state.count == 0 {
+                        context.resultNull()
+                    } else {
+                        context.result(state.product)
+                    }
+                }) else {
                     context.resultNull()
-                } else {
-                    context.result(statePtr.pointee.product)
+                    return
                 }
             }
         )
@@ -137,29 +137,29 @@ public struct MathFunctionsExtension: SQLiteExtensionModule {
 
                 let value = first.doubleValue
 
-                // Store running sum and sum of squares
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 24)
-                let dataPtr = aggCtx!.assumingMemoryBound(to: (count: Int64, sum: Double, sumSquares: Double).self)
-
-                dataPtr.pointee.count += 1
-                dataPtr.pointee.sum += value
-                dataPtr.pointee.sumSquares += value * value
+                context.withAggregateValue(initialValue: (count: Int64(0), sum: 0.0, sumSquares: 0.0)) { state in
+                    state.count += 1
+                    state.sum += value
+                    state.sumSquares += value * value
+                }
             },
             final: { context in
-                let aggCtx = sqlite3_aggregate_context(context.pointer, 24)
-                let dataPtr = aggCtx!.assumingMemoryBound(to: (count: Int64, sum: Double, sumSquares: Double).self)
+                guard context.withExistingAggregateValue((count: Int64, sum: Double, sumSquares: Double).self, clearOnExit: true, { state in
+                    let count = state.count
+                    if count == 0 {
+                        context.resultNull()
+                        return
+                    }
 
-                let count = dataPtr.pointee.count
-                if count == 0 {
+                    let mean = state.sum / Double(count)
+                    let variance = (state.sumSquares / Double(count)) - (mean * mean)
+                    let stdDev = sqrt(max(0, variance))  // max to handle floating point errors
+
+                    context.result(stdDev)
+                }) else {
                     context.resultNull()
                     return
                 }
-
-                let mean = dataPtr.pointee.sum / Double(count)
-                let variance = (dataPtr.pointee.sumSquares / Double(count)) - (mean * mean)
-                let stdDev = sqrt(max(0, variance))  // max to handle floating point errors
-
-                context.result(stdDev)
             }
         )
     }
@@ -170,7 +170,7 @@ public struct MathFunctionsExtension: SQLiteExtensionModule {
 public func sqlite3_mathfunctions_init(
     db: OpaquePointer?,
     pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-    pApi: OpaquePointer?
+    pApi: UnsafePointer<sqlite3_api_routines>?
 ) -> Int32 {
     return MathFunctionsExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
 }
