@@ -1,64 +1,51 @@
-import CSQLite
 import Foundation
-import SQLiteExtensionKit
 import ExampleExtensions
+import GRDB
+import SQLiteExtensionKit
 
-func runDemo() throws {
-    var dbPointer: OpaquePointer?
-    guard sqlite3_open(":memory:", &dbPointer) == SQLITE_OK, let db = dbPointer else {
-        throw DemoError.openFailed
-    }
-    defer { sqlite3_close(db) }
+struct DockerGRDBDemo {
+    private let queue: DatabaseQueue
 
-    let registrationResult = StringFunctionsExtension.entryPoint(
-        db: db,
-        pzErrMsg: nil,
-        pApi: nil
-    )
+    init() throws {
+        var configuration = Configuration()
+        configuration.prepareDatabase { db in
+            guard let connection = db.sqliteConnection else {
+                throw DemoError.missingSQLiteHandle
+            }
 
-    guard registrationResult == SQLITE_OK else {
-        throw DemoError.registrationFailed(code: registrationResult)
-    }
+            let database = SQLiteDatabase(connection)
+            try StringFunctionsExtension.register(with: database)
+        }
 
-    let queries: [(String, String)] = [
-        ("SELECT reverse('docker demo')", "reversed"),
-        ("SELECT word_count('using sqlite extension kit in docker')", "word_count"),
-        ("SELECT trim_all(' swift  on  linux ')", "trimmed")
-    ]
-
-    for (sql, label) in queries {
-        try run(query: sql, label: label, db: db)
-    }
-}
-
-func run(query: String, label: String, db: OpaquePointer) throws {
-    var statement: OpaquePointer?
-    guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK, let stmt = statement else {
-        throw DemoError.prepareFailed(query: query)
-    }
-    defer { sqlite3_finalize(stmt) }
-
-    guard sqlite3_step(stmt) == SQLITE_ROW else {
-        throw DemoError.executionFailed(query: query)
+        queue = try DatabaseQueue(configuration: configuration)
     }
 
-    if let textPointer = sqlite3_column_text(stmt, 0) {
-        let value = String(cString: textPointer)
-        print("\(label): \(value)")
-    } else {
-        print("\(label): NULL")
+    func run() throws {
+        let reversed: String = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT reverse('docker demo')") ?? ""
+        }
+
+        let wordCount: Int = try queue.read { db in
+            try Int.fetchOne(db, sql: "SELECT word_count('using sqlite extension kit in docker')") ?? 0
+        }
+
+        let trimmed: String = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT trim_all(' swift  on  linux ')") ?? ""
+        }
+
+        print("reversed: \(reversed)")
+        print("word_count: \(wordCount)")
+        print("trimmed: \(trimmed)")
     }
 }
 
 enum DemoError: Error {
-    case openFailed
-    case registrationFailed(code: Int32)
-    case prepareFailed(query: String)
-    case executionFailed(query: String)
+    case missingSQLiteHandle
 }
 
 do {
-    try runDemo()
+    let demo = try DockerGRDBDemo()
+    try demo.run()
 } catch {
     if let data = "Demo failed: \(error)\n".data(using: .utf8) {
         FileHandle.standardError.write(data)

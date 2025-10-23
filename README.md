@@ -305,6 +305,17 @@ product in release mode, and executes the `LinuxDockerDemo` helper. The demo lin
 system library, registers the Swift string extension entry point, and executes a handful of SQL
 queries to show the results.
 
+Want to exercise the same example directly on macOS? Use the helper script, which runs the
+standalone GRDB-backed executable and verifies the expected output:
+
+```bash
+Scripts/run-linuxdockerapp.sh
+```
+
+See the [GRDB integration guide](Sources/SQLiteExtensionKit/Documentation.docc/Articles/GRDBIntegration.md)
+for a deeper walkthrough of how the example registers SQLiteExtensionKit within GRDB and how you can
+apply the pattern in your own projects.
+
 ### AdvancedFunctionsExtension
 - JSON extraction and manipulation
 - Regular expression matching and replacement
