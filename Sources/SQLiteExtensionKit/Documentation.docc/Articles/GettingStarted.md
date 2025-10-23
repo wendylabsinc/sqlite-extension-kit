@@ -66,6 +66,9 @@ public func sqlite3_myextension_init(
 
 **Naming Convention**: The function must be named `sqlite3_<extension_name>_init` where `<extension_name>` matches your library name (lowercased).
 
+> Tip: If you need a custom entry point implementation, call ``initializeExtensionIfNeeded(_:)``
+> with the supplied `pApi` pointer before invoking any SQLite APIs.
+
 ### 3. Configure Your Package
 
 Update your `Package.swift` to build a dynamic library:
@@ -172,6 +175,21 @@ try db.createAggregateFunction(
 Use ``SQLiteContext/aggregateState(create:)`` and ``SQLiteContext/existingAggregateState(_:)`` when
 you need reference semantics instead of copyable values—the window function examples in this package
 show how to model more complex state machines.
+
+## Virtual Tables
+
+You can expose Swift data sources as SQLite virtual tables without writing C glue code. Register the
+module with ``SQLiteDatabase/registerVirtualTableModule(name:module:)`` and then create the table via
+SQL:
+
+```swift
+try db.registerVirtualTableModule(name: "keyvalue", module: KeyValueVirtualTable.self)
+sqlite3_exec(db, "CREATE VIRTUAL TABLE kv USING keyvalue", nil, nil, nil)
+```
+
+Implement ``VirtualTableModule`` and ``VirtualTableCursor`` to describe the schema, indexing
+behaviour, and row iteration. The included `KeyValueVirtualTable` example demonstrates an in-memory
+key/value store implemented entirely in Swift.
 
 ## Understanding Value Types
 

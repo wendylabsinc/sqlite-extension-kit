@@ -68,9 +68,7 @@ extension SQLiteExtensionModule {
         pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
         pApi: UnsafePointer<sqlite3_api_routines>?
     ) -> Int32 {
-        if let pApi = pApi {
-            SQLiteExtensionKitInitialize(pApi)
-        }
+        initializeExtensionIfNeeded(pApi)
 
         guard let db = db else {
             return SQLITE_ERROR
@@ -79,7 +77,7 @@ extension SQLiteExtensionModule {
         // Initialize the SQLite extension API
         // This is required for all loadable extensions
         // Note: SQLite requires extensions to initialize the global API table via
-        // SQLITE_EXTENSION_INIT2. The call to `SQLiteExtensionKitInitialize` above
+        // SQLITE_EXTENSION_INIT2. The call to `initializeExtensionIfNeeded` above
         // bridges that requirement for Swift.
 
         do {
@@ -138,9 +136,7 @@ public func createExtensionEntryPoint(
     pApi: UnsafePointer<sqlite3_api_routines>?,
     register: (SQLiteDatabase) throws -> Void
 ) -> Int32 {
-    if let pApi = pApi {
-        SQLiteExtensionKitInitialize(pApi)
-    }
+    initializeExtensionIfNeeded(pApi)
 
     guard let db = db else {
         return SQLITE_ERROR
@@ -186,4 +182,19 @@ private func assignErrorMessage(
     }
 
     pzErrMsg.pointee = buffer
+}
+
+/// Initializes the SQLite extension API if it has not already been initialised.
+///
+/// This is automatically invoked by ``SQLiteExtensionModule/entryPoint`` and
+/// ``createExtensionEntryPoint(name:db:pzErrMsg:pApi:register:)`` but is exposed
+/// for custom entry points.
+///
+/// - Parameter pApi: The API table pointer provided by SQLite.
+@inlinable
+public func initializeExtensionIfNeeded(
+    _ pApi: UnsafePointer<sqlite3_api_routines>?
+) {
+    guard let pApi else { return }
+    SQLiteExtensionKitInitialize(pApi)
 }

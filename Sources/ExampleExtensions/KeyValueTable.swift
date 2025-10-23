@@ -171,7 +171,21 @@ public struct KeyValueVirtualTable: VirtualTableModule {
     }
 }
 
-// Note: Full virtual table registration requires C callbacks and is beyond
-// the scope of this example. This demonstrates the Swift-side data structure
-// and protocols. For production use, you would need to implement the full
-// sqlite3_module interface with C function pointers.
+/// Extension that exposes the KeyValue virtual table.
+public struct KeyValueTableExtension: SQLiteExtensionModule {
+    public static let name = "keyvalue_table"
+
+    public static func register(with db: SQLiteDatabase) throws {
+        try db.registerVirtualTableModule(name: "keyvalue", module: KeyValueVirtualTable.self)
+    }
+}
+
+/// Entry point for the key-value virtual table extension.
+@_cdecl("sqlite3_keyvalue_init")
+public func sqlite3_keyvalue_init(
+    db: OpaquePointer?,
+    pzErrMsg: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
+    pApi: UnsafePointer<sqlite3_api_routines>?
+) -> Int32 {
+    return KeyValueTableExtension.entryPoint(db: db, pzErrMsg: pzErrMsg, pApi: pApi)
+}

@@ -72,6 +72,10 @@ public func sqlite3_myextension_init(
 }
 ```
 
+If you need to customise the entry point manually, call
+`initializeExtensionIfNeeded(pApi)` before interacting with any SQLite APIs to ensure the
+extension table is initialised.
+
 ### Building Your Extension
 
 ```bash
@@ -174,6 +178,18 @@ The helpers `withAggregateValue(initialValue:)` and `withExistingAggregateValue(
 store copyable state safely and release it when you are done. For complex reference types, fall back
 to ``aggregateState(create:)`` / ``existingAggregateState(_:)`` — see the window-function examples in
 `Sources/ExampleExtensions/WindowFunctions.swift`.
+
+### Virtual Tables
+
+Register a Swift virtual table module and expose it to SQLite:
+
+```swift
+try db.registerVirtualTableModule(name: "keyvalue", module: KeyValueVirtualTable.self)
+sqlite3_exec(db.pointer, "CREATE VIRTUAL TABLE kv USING keyvalue", nil, nil, nil)
+```
+
+The sample `KeyValueVirtualTable` demonstrates how to implement the required protocols; the C glue
+is handled internally by SQLiteExtensionKit.
 
 ## Working with Different Value Types
 

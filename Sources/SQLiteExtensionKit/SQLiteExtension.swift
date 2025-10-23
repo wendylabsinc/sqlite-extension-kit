@@ -223,6 +223,42 @@ public struct SQLiteDatabase: @unchecked Sendable {
             throw SQLiteExtensionError.functionRegistrationFailed(name: name, code: result)
         }
     }
+
+    /// Registers a virtual table module with the database.
+    ///
+    /// - Parameters:
+    ///   - name: The module name as referenced in SQL (`USING name`).
+    ///   - module: The Swift type implementing the virtual table.
+    /// - Throws: ``SQLiteExtensionError`` if registration fails.
+    public func registerVirtualTableModule<Module: VirtualTableModule>(
+        name: String,
+        module: Module.Type = Module.self
+    ) throws {
+        let descriptor = VirtualTableModuleDescriptor(
+            name: name,
+            adapter: VirtualTableModuleAdapter<Module>()
+        )
+
+        let context = Unmanaged.passRetained(descriptor).toOpaque()
+        let destroy: @convention(c) (UnsafeMutableRawPointer?) -> Void = { pointer in
+            guard let pointer else { return }
+            Unmanaged<VirtualTableModuleDescriptor>.fromOpaque(pointer).release()
+        }
+
+        let result = name.withCString { cName in
+            SQLiteExtensionKit_CreateVirtualTableModule(
+                pointer,
+                cName,
+                context,
+                destroy
+            )
+        }
+
+        if result != SQLITE_OK {
+            Unmanaged<VirtualTableModuleDescriptor>.fromOpaque(context).release()
+            throw SQLiteExtensionError.sqliteError(code: result)
+        }
+    }
 }
 
 // MARK: - Internal Support Types
