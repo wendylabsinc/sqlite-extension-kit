@@ -1,5 +1,9 @@
 # SQLiteExtensionKit
 
+[![Swift Package Index](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fwendylabsinc%2Fsqlite-extension-kit%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/wendylabsinc/sqlite-extension-kit)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fwendylabsinc%2Fsqlite-extension-kit%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/wendylabsinc/sqlite-extension-kit)
+[![Documentation](https://swiftpackageindex.com/wendylabsinc/sqlite-extension-kit/badge.svg)](https://swiftpackageindex.com/wendylabsinc/sqlite-extension-kit/documentation)
+
 A modern, Swift-ergonomic package for building SQLite loadable extensions with full support for Apple platforms, macOS, and Linux.
 
 [![iOS](https://img.shields.io/badge/iOS-18.0+-blue.svg)](https://developer.apple.com/ios/)
