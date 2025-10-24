@@ -45,7 +45,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "0.0.1")
+        .package(url: "https://github.com/wendylabsinc/sqlite-extension-kit", from: "0.0.2")
     ],
     targets: [
         .target(
